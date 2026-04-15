@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ResumeAI — Smart Resume Analyzer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-brand">Resume<span>AI</span></div>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+      <span class="theme-icon">☀️</span>
+    </button>
+  </nav>
+
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+
+  <main class="container">
+    <section class="hero">
+      <div class="hero-badge">AI-Powered Analysis</div>
+      <h1>Land Your<br/><span class="gradient-text">Dream Job</span></h1>
+      <p>Upload your resume and paste a job description. Get an instant match score, skill gap analysis, and tailored suggestions in seconds.</p>
+    </section>
+
+    <section class="card upload-card">
+      <form id="analyzeForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Resume <span class="label-hint">PDF only · Max 5MB</span></label>
+            <div class="dropzone" id="dropzone">
+              <div class="drop-inner">
+                <div class="drop-icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/>
+                  </svg>
+                </div>
+                <div class="drop-text">Drop PDF here or <span class="browse-link">browse</span></div>
+              </div>
+              <input type="file" id="resumeFile" name="resume" accept=".pdf" hidden/>
+            </div>
+            <div class="file-selected" id="fileSelected" style="display:none">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span id="fileName"></span>
+              <button type="button" class="clear-btn" onclick="clearFile()">✕</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Job Description</label>
+            <textarea id="jobDescription" name="job_description"
+              placeholder="Paste the full job description here..." rows="9"></textarea>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-analyze" id="submitBtn">
+          <span class="btn-text">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Analyze Resume
+          </span>
+          <span class="btn-loader" style="display:none">
+            <span class="spinner"></span> Analyzing...
+          </span>
+        </button>
+      </form>
+    </section>
+
+    <div class="error-box" id="errorBox" style="display:none"></div>
+
+    <section class="results" id="results" style="display:none">
+      <div class="results-header">
+        <h2>Analysis Results</h2>
+        <div class="verdict-badge" id="verdictBadge"></div>
+      </div>
+
+      <div class="score-row">
+        <div class="score-card">
+          <div class="score-circle">
+            <svg viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="52" class="track"/>
+              <circle cx="60" cy="60" r="52" class="progress" id="scoreCircle"/>
+            </svg>
+            <div class="score-inner">
+              <div class="score-number" id="scoreNumber">0</div>
+              <div class="score-pct">%</div>
+            </div>
+          </div>
+          <div class="score-label">Match Score</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon">📋</div>
+          <h3>Overview</h3>
+          <p id="summaryText"></p>
+        </div>
+      </div>
+
+      <div class="skills-grid">
+        <div class="skill-card matching">
+          <div class="skill-header">
+            <span class="skill-dot green"></span>
+            <h3>Matching Skills</h3>
+          </div>
+          <div class="tags" id="matchingSkills"></div>
+        </div>
+        <div class="skill-card missing">
+          <div class="skill-header">
+            <span class="skill-dot amber"></span>
+            <h3>Missing Skills</h3>
+          </div>
+          <div class="tags" id="missingSkills"></div>
+        </div>
+      </div>
+
+      <div class="suggestions-card">
+        <div class="suggestions-header">
+          <span class="sugg-icon">💡</span>
+          <h3>How to Improve</h3>
+        </div>
+        <ul id="suggestionsList"></ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>ResumeAI · Smart Resume Analysis</p>
+  </footer>
+
+  <script>
+    // Theme toggle
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('themeToggle');
+    const themeIcon = themeBtn.querySelector('.theme-icon');
+    themeBtn.addEventListener('click', () => {
+      const isDark = html.dataset.theme === 'dark';
+      html.dataset.theme = isDark ? 'light' : 'dark';
+      themeIcon.textContent = isDark ? '🌙' : '☀️';
+    });
+
+    // Dropzone
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('resumeFile');
+    const fileSelected = document.getElementById('fileSelected');
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault(); dropzone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type === 'application/pdf') {
+        fileInput.files = e.dataTransfer.files;
+        showFile(file.name);
+      }
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) showFile(fileInput.files[0].name);
+    });
+    function showFile(name) {
+      dropzone.style.display = 'none';
+      fileSelected.style.display = 'flex';
+      document.getElementById('fileName').textContent = name;
+    }
+    function clearFile() {
+      fileInput.value = '';
+      dropzone.style.display = 'flex';
+      fileSelected.style.display = 'none';
+    }
+
+    // Form submit
+    document.getElementById('analyzeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      const btnText = btn.querySelector('.btn-text');
+      const btnLoader = btn.querySelector('.btn-loader');
+      const errorBox = document.getElementById('errorBox');
+      const results = document.getElementById('results');
+
+      errorBox.style.display = 'none';
+      results.style.display = 'none';
+      btnText.style.display = 'none';
+      btnLoader.style.display = 'inline-flex';
+      btn.disabled = true;
+
+      try {
+        const formData = new FormData(e.target);
+        const res = await fetch('/analyze', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Unknown error');
+        renderResults(data);
+      } catch (err) {
+        errorBox.textContent = '❌ ' + err.message;
+        errorBox.style.display = 'block';
+      } finally {
+        btnText.style.display = 'inline-flex';
+        btnLoader.style.display = 'none';
+        btn.disabled = false;
+      }
+    });
+
+    function renderResults(data) {
+      const results = document.getElementById('results');
+      results.style.display = 'block';
+      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      const score = data.match_score || 0;
+      document.getElementById('scoreNumber').textContent = score;
+      const circle = document.getElementById('scoreCircle');
+      const circumference = 2 * Math.PI * 52;
+      circle.style.strokeDasharray = circumference;
+      circle.style.strokeDashoffset = circumference;
+      const color = score >= 70 ? '#4ade80' : score >= 40 ? '#fbbf24' : '#f87171';
+      circle.style.stroke = color;
+      document.getElementById('scoreNumber').style.color = color;
+      setTimeout(() => {
+        circle.style.transition = 'stroke-dashoffset 1.4s cubic-bezier(0.34,1.56,0.64,1)';
+        circle.style.strokeDashoffset = circumference - (score / 100) * circumference;
+      }, 100);
+
+      const verdictColors = {
+        'Strong Match': '#4ade80',
+        'Good Match': '#60a5fa',
+        'Partial Match': '#fbbf24',
+        'Weak Match': '#f87171'
+      };
+      const badge = document.getElementById('verdictBadge');
+      badge.textContent = data.verdict || '';
+      badge.style.setProperty('--badge-color', verdictColors[data.verdict] || '#888');
+
+      document.getElementById('summaryText').textContent = data.summary || '';
+
+      document.getElementById('matchingSkills').innerHTML =
+        (data.matching_skills || []).map(s => `<span class="tag match">${s}</span>`).join('');
+      document.getElementById('missingSkills').innerHTML =
+        (data.missing_skills || []).map(s => `<span class="tag miss">${s}</span>`).join('');
+
+      document.getElementById('suggestionsList').innerHTML =
+        (data.suggestions || []).map((s, i) => `<li><span class="sugg-num">${String(i+1).padStart(2,'0')}</span><span>${s}</span></li>`).join('');
+    }
+  </script>
+</body>
+</html>
